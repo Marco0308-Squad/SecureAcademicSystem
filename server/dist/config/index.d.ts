@@ -1,0 +1,31 @@
+export declare const config: {
+    JWT_ACCESS_SECRET: string;
+    JWT_ACCESS_EXPIRY: string;
+    NODE_ENV: "development" | "test" | "production";
+    PORT: number;
+    DATABASE_URL: string;
+    DB_USER: string;
+    DB_PASSWORD: string;
+    DB_HOST: string;
+    DB_PORT: number;
+    DB_NAME: string;
+    JWT_SECRET: string;
+    JWT_REFRESH_SECRET: string;
+    JWT_REFRESH_EXPIRY: string;
+    CORS_ORIGIN: string;
+    LOG_LEVEL: "error" | "warn" | "info" | "debug";
+    REDIS_HOST: string;
+    REDIS_PORT: number;
+    RATE_LIMIT_WINDOW_MS: number;
+    RATE_LIMIT_MAX_REQUESTS: number;
+    BCRYPT_ROUNDS: number;
+    MAX_LOGIN_ATTEMPTS: number;
+    LOCK_TIME: string;
+    JWT_EXPIRY?: string | undefined;
+    SMTP_HOST?: string | undefined;
+    SMTP_PORT?: number | undefined;
+    SMTP_USER?: string | undefined;
+    SMTP_PASSWORD?: string | undefined;
+    SMTP_FROM?: string | undefined;
+};
+//# sourceMappingURL=index.d.ts.map
