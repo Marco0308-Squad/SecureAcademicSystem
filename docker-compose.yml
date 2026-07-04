@@ -1,0 +1,126 @@
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: sams-postgres
+    environment:
+      POSTGRES_DB: ${DB_NAME:-sams_db}
+      POSTGRES_USER: ${DB_USER:-sams_user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-sams_password_change_me}
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C"
+    ports:
+      - "${DB_PORT:-15432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    networks:
+      - sams-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-sams_user}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # Backend API Server
+  server:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.server
+    container_name: sams-server
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      NODE_ENV: ${NODE_ENV:-development}
+      DATABASE_URL: postgresql://${DB_USER:-sams_user}:${DB_PASSWORD:-sams_password_change_me}@postgres:5432/${DB_NAME:-sams_db}
+      SERVER_PORT: 5000
+      JWT_SECRET: ${JWT_SECRET:-your_jwt_secret_key_change_me_in_production}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-your_jwt_refresh_secret_key_change_me_in_production}
+      JWT_EXPIRY: ${JWT_EXPIRY:-15m}
+      JWT_REFRESH_EXPIRY: ${JWT_REFRESH_EXPIRY:-7d}
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:5173}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      BCRYPT_ROUNDS: 12
+      MAX_LOGIN_ATTEMPTS: 5
+      LOCK_TIME: 30m
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./server/src:/app/src
+    networks:
+      - sams-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/api/v1/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Frontend Application
+  client:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.client
+    container_name: sams-client
+    environment:
+      VITE_API_URL: http://localhost:5000/api/v1
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./client/src:/app/src
+    networks:
+      - sams-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5173"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Nginx Reverse Proxy
+  nginx:
+    image: nginx:alpine
+    container_name: sams-nginx
+    ports:
+      - "8080:80"
+      - "8443:443"
+    volumes:
+      - ./docker/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./docker/ssl:/etc/nginx/ssl:ro
+    networks:
+      - sams-network
+    depends_on:
+      - server
+      - client
+    restart: unless-stopped
+
+  # Redis (Optional - for caching/sessions)
+  redis:
+    image: redis:7-alpine
+    container_name: sams-redis
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-redis_password_change_me}
+    ports:
+      - "16379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - sams-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+networks:
+  sams-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
